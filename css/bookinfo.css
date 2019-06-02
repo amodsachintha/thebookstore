@@ -1,0 +1,36 @@
+/*bookinfo.php styling*/
+
+	body{
+		text-align: center;
+		width: 900px;
+		height: 760px;
+		margin: 50px auto;
+		background-color: #e6e6e6; 
+		
+	}
+	#main{
+		margin-left: 80px;
+		font-family: Consolas;
+	/*	border: solid 1px red;	*/
+		padding: 10px;
+		width: 670px;
+	}
+
+	#main.form{
+		padding: 12px;
+	}
+	h2,h3{
+		font-family: Consolas;
+		text-align: center;
+	}
+	input{
+		margin-left: 20px;
+	}
+
+	.footer{
+		font-family: Consolas;
+		font-size: 10.5px;
+		margin-top: 10px;
+		text-align: center;
+		padding-left: 70px;
+	}

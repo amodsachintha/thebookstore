@@ -1,0 +1,482 @@
+<?php
+if(isset($_SESSION['uid'])){
+$uidd = $_SESSION['uid'];
+}
+
+	function countCartItems(){
+		global $uidd;
+		global $con;
+
+		$q1 = "select count(cartitems.id) as count  from
+				user 
+				join cart on
+				cart.uid=user.uid
+				join cartitems on
+				cartitems.cartID=cart.cartId 
+				where user.uid = $uidd;";
+
+		$result=mysqli_fetch_array(mysqli_query($con,$q1))['count'];
+		
+		if(!$result){
+			return 0;
+		//	die(mysqli_error($con));
+		}
+
+		return $result;
+
+	}
+
+	function addCartId(){
+		global $uidd;
+		global $con;
+		$q2 = "select * from cart where uid=$uidd";
+		$rowcount = mysqli_num_rows(mysqli_query($con,$q2));
+
+		$uniqueCartId = $uidd."9";
+
+		if($rowcount == 0){
+			$q3 = "insert into cart values($uidd,$uniqueCartId);";
+			$run_q3 = mysqli_query($con,$q3);
+			if(!$run_q3){
+				die(mysqli_error($con));
+			}
+		}
+	}
+
+	function getCartId(){
+		global $con;
+		global $uidd;
+		if(!$uidd){
+			die;
+		}
+		$qc = "select cartId as cid from cart where uid = $uidd;";
+
+		$res = mysqli_fetch_array(mysqli_query($con,$qc))['cid'];
+		return $res;
+	}
+
+	function addToCart(){
+		global $con;
+		if(isset($_POST['addtocart'])){
+
+			$isbn=$_POST['isbn'];
+
+			$cartid = getCartId();
+
+			$qcheck = "select * from cartitems where isbn='$isbn' && cartID=$cartid;";
+			$runqcheck = mysqli_query($con,$qcheck);
+			if(mysqli_num_rows($runqcheck)==1){
+				echo "<script>alert('You have already added this item! cart amount updated!')</script>";
+				$getQuantity = mysqli_fetch_array($runqcheck)['quantity'];
+				$newQuantity = $getQuantity + 1;
+
+				$qUpdate = "update cartitems set quantity = $newQuantity where cartID = $cartid && isbn = $isbn";
+				$runUpdate = mysqli_query($con,$qUpdate);
+			}
+
+			else{
+				$q4 = "insert into cartitems (cartID, isbn, quantity) values ($cartid, '$isbn', 1 )";
+
+				$run_q4 = mysqli_query($con,$q4);
+
+				if(!$run_q4){
+					die(mysqli_error($con));
+				}
+		}
+
+
+		}
+	}
+
+
+	function viewCart(){
+		global $con;
+		global $uidd;
+		$cartID = getCartId();
+		if (!isset($uidd)){
+			die;
+		}
+		$q5 = "Select * from cartitems where cartID = $cartID";
+		$run_q4 = mysqli_query($con,$q5);
+		$count = 0;
+
+		$subtotal = 0;
+
+		while ($res = mysqli_fetch_array($run_q4)) {
+			$count++;
+			$isbn = $res['isbn'];
+			$qua = $res['quantity'];
+			$date = $res['dateAdded'];
+
+			$qbook = "	SELECT book.bookTitle as title, book.bookPublisher as publisher, book.bookPrice as price, 
+					 	book.bookCover as cover, cat.cat as cat, formats.format as format, authors.authorName as author
+ 					 	FROM store.book
+						join cat on
+						cat.catId = book.catId 
+						join formats on
+						formats.formatID = book.formatID
+						join authors on
+						book.bookIsbn = authors.isbn
+						where book.bookIsbn = '$isbn';";
+
+
+			$runqbook = mysqli_query($con, $qbook);
+			$resultRow = mysqli_fetch_array($runqbook);
+
+			$title = $resultRow['title'];
+			$publisher = $resultRow['publisher'];
+			$price = $resultRow['price'];
+			$cover = $resultRow['cover'];
+			$category = $resultRow['cat'];
+			$format = $resultRow['format'];
+			$author = $resultRow['author'];
+
+			$totalPrice = $qua*$price;
+			$subtotal +=$totalPrice;
+			echo "
+		<tr style='border-bottom: 1pt solid grey;'>
+			<td>$isbn</td>
+			<td><img src='data/covers/$cover' width='60'></td>
+				<td>
+				<b>$title</b> </br> 
+				<i>$author</i></br>
+				$category </br> 
+				$publisher </br>
+				<a href='cart.php?rem_isbn=$isbn'> delete </a>
+				</td>
+			<td>
+			
+			<form action=cart.php method = 'POST'>
+				<input type='hidden' name='quant' value='$qua'>
+				<input type='hidden' name='isbn' value='$isbn'>
+				<input type='submit' name='sub' value = '-'>
+				$qua
+				<input type='submit' name='add' value = '+'>
+			</form>
+
+			</td>
+			<td colspan='2'>Rs.$totalPrice</td>
+		</tr>";
+			
+		}
+
+		echo "
+		<tr style='border-bottom: 1pt solid grey;'>
+			<td> </td>
+			<td> </td>
+			<td> </td>
+			<td>subtotal</td>
+			<td>Rs $subtotal</td>
+		</tr> ";
+
+	}
+
+
+
+	function removefromcart(){
+		global $con;
+		if(isset($_GET['rem_isbn'])){
+
+			$cartid = getCartId();
+			$isbn = $_GET['rem_isbn'];
+
+			$q = "DELETE from cartitems where isbn='$isbn' && cartID=$cartid;";
+
+			$runq = mysqli_query($con,$q);
+
+			if (!$runq) {
+				die(mysqli_error($con));
+			}
+			echo "<script> window.open('cart.php','self') </script>";
+
+		}
+	}
+
+	function editquantity(){
+		ob_start();
+		global $con;
+		if (isset($_POST['add'])){
+
+				$cartid = getCartId();
+				$isbn = $_POST['isbn'];
+				$qua = $_POST['quant'] + 1;	
+
+				$q = "UPDATE cartitems set quantity = $qua where cartID = $cartid && isbn = '$isbn'";
+
+				$runq = mysqli_query($con, $q);
+				if(!$runq){
+					die(mysqli_error($con));
+				}
+				echo "<script> window.open('cart.php','self')</script>";
+		}
+
+		if (isset($_POST['sub'])){
+
+				$cartid = getCartId();
+				$isbn = $_POST['isbn'];
+				$qua = $_POST['quant'] - 1;	
+
+				$q = "UPDATE cartitems set quantity = $qua where cartID = $cartid && isbn = '$isbn'";
+
+				$runq = mysqli_query($con, $q);
+				if(!$runq){
+					die(mysqli_error($con));
+				}
+			//	echo $qua;
+				
+				
+				if($_POST['quant'] == 1){
+				
+					$q2 = "DELETE from cartitems where isbn='$isbn' && cartID=$cartid;";
+					$runq2 = mysqli_query($con,$q2);
+					
+				}
+				
+			echo "<script> window.open('cart.php','self')</script>";
+
+		}
+
+
+	}
+
+
+	function viewcartmin(){
+				global $con;
+		global $uidd;
+		$cartID = getCartId();
+
+		$q5 = "Select * from cartitems where cartID = $cartID";
+		$run_q4 = mysqli_query($con,$q5);
+		$count = 0;
+
+		$subtotal = 0;
+
+		while ($res = mysqli_fetch_array($run_q4)) {
+			$count++;
+			$isbn = $res['isbn'];
+			$qua = $res['quantity'];
+			$date = $res['dateAdded'];
+
+			$qbook = "	SELECT book.bookTitle as title, book.bookPublisher as publisher, book.bookPrice as price, 
+					 	book.bookCover as cover, cat.cat as cat, formats.format as format, authors.authorName as author
+ 					 	FROM store.book
+						join cat on
+						cat.catId = book.catId 
+						join formats on
+						formats.formatID = book.formatID
+						join authors on
+						book.bookIsbn = authors.isbn
+						where book.bookIsbn = '$isbn';";
+
+
+			$runqbook = mysqli_query($con, $qbook);
+			$resultRow = mysqli_fetch_array($runqbook);
+
+			$title = $resultRow['title'];
+			$publisher = $resultRow['publisher'];
+			$price = $resultRow['price'];
+			$cover = $resultRow['cover'];
+			$category = $resultRow['cat'];
+			$format = $resultRow['format'];
+			$author = $resultRow['author'];
+
+			$totalPrice = $qua*$price;
+			$subtotal +=$totalPrice;
+
+			echo "
+   			<tr>
+   				<td>$isbn &nbsp; </td>
+   				<td><b>$title</b></td>
+   				<td>&nbsp;x$qua &nbsp;</td>
+   				<td>Rs $totalPrice</td>
+   			</tr>
+
+			";
+		}
+
+		echo "
+			<tr>
+				<td> </td>
+				<td> </td>
+   				<td><i>sub total</i></td>
+   				<td><b> Rs $subtotal /=</b></td>
+   			</tr>
+
+		";
+
+		$_SESSION['subtotal'] = $subtotal;
+
+	}
+
+
+
+	function checkout(){
+		global $con;
+		global $uidd;
+		$subtotal = $_SESSION['subtotal'];
+		$uid = $_SESSION['uid'];
+		$cartID = getCartId();
+
+		$address = mysqli_real_escape_string($con,$_POST['s_address1'].", ".$_POST['s_address2'].", ".$_POST['s_address3'].", ".$_POST['s_address4'].", ".$_POST['country'].".");
+
+		$paidwith = $_POST['payM'];
+
+			$q = "SELECT * from cartitems where cartId = $cartID";
+			$runq = mysqli_query($con,$q);
+
+			if(!$runq){
+				die(mysqli_error($con));
+			}
+			
+			$purchaseId = mt_rand();
+
+
+			$insert = "INSERT into purchasehistory (uid,purchaseId,total,paidwith,shipaddress) values ($uid, $purchaseId, $subtotal, $paidwith, '$address');";
+
+
+			$run1 = mysqli_query($con,$insert);
+
+			if(!$run1){
+				die(mysqli_error($con));
+			}
+
+			while($rows=mysqli_fetch_array($runq)){
+
+				$isbn = $rows['isbn'];
+				$quantity=$rows['quantity'];
+
+				$que = "INSERT INTO purchaseitems (isbn, purchaseId, quantity) values ('$isbn',$purchaseId,$quantity)";
+
+				$qdf = "UPDATE book set quantity = quantity - $quantity where bookIsbn = '$isbn';";
+
+				$run2 = mysqli_query($con,$que);
+				if(!$run2){
+				die(mysqli_error($con));
+			}
+
+				$runqdf = mysqli_query($con,$qdf);
+				if(!$runqdf){
+				die(mysqli_error($con));
+			}
+
+
+		}
+
+
+			$delque = "DELETE FROM cartitems where cartID = $cartID";
+			$runDelete = mysqli_query($con,$delque);
+			if(!$runDelete){
+				die(mysqli_error($con));
+			}
+
+
+			echo "<script>alert('Purchase Succesful!')</script>";
+			echo "<script>window.open('profile.php','self')</script>";
+
+
+	}
+
+
+
+	function viewPurchases(){
+		global $con;
+		global $uidd;
+		$uid = $_SESSION['uid'];
+
+		$q = "SELECT * from purchasehistory where uid = $uidd;";
+		$runQ = mysqli_query($con,$q);
+
+		if(empty($runQ)){
+			echo "";
+		}
+		else{
+
+			while ($row = mysqli_fetch_array($runQ)) {
+
+				$date = $row['date'];
+				$purchaseId = $row['purchaseId'];
+				$shipaddress = $row['shipaddress'];
+				$total = $row['total'];
+
+			echo "
+					<tr align='center'>
+						<td>$date</td>
+						<td><a href=profile.php?pid=$purchaseId>$purchaseId</a></td>
+						<td>$shipaddress </td>
+						<td>Rs $total/=</td>
+					</tr>
+				";
+
+			}
+		}
+		
+	}
+
+
+	function viewpurchasedetails(){
+		global $con;
+		global $uidd;
+
+		if(isset($_GET['pid'])){
+			$pid = $_GET['pid'];
+			$q = "SELECT * FROM purchaseitems where purchaseId = $pid;";
+			$res  = mysqli_query($con,$q);
+
+			while ($row = mysqli_fetch_array($res)) {
+
+				$isbn = $row['isbn'];
+				$qua = $row['quantity'];
+
+				$qe = "SELECT book.bookTitle as title, book.bookPublisher as publisher, book.bookPrice as price, 
+					 	book.bookCover as cover, book.fileName as fname, cat.cat as cat, formats.format as format, authors.authorName as author
+ 					 	FROM store.book
+						join cat on
+						cat.catId = book.catId 
+						join formats on
+						formats.formatID = book.formatID
+						join authors on
+						book.bookIsbn = authors.isbn
+						where book.bookIsbn = '$isbn';";
+
+				$run = mysqli_query($con,$qe);
+				$data = mysqli_fetch_array($run);
+
+			$title = $data['title'];
+			$publisher = $data['publisher'];
+			$price = $data['price'];
+			$cover = $data['cover'];
+			$category = $data['cat'];
+			$format = $data['format'];
+			$author = $data['author'];
+			$fname = $data['fname'];
+			$entry = 0;
+
+
+
+			echo "
+		<tr style='border-bottom: 1pt solid grey;'>
+			<td>$isbn</td>
+			<td><img src='data/covers/$cover' width='60'></td>
+				<td>
+				<b>$title</b> </br> 
+				<i>$author</i></br>
+				$category </br> 
+				$publisher </br>
+				</td>";
+
+				
+				$newname=$fname;
+			if ($handle = opendir('data/books/')) {
+    while (false !== ($entry = readdir($handle))) {
+        if ($entry == $newname) {
+            echo "<td><a href='download.php?file=".$entry."&isbnfromget=$isbn'>download</a></td></tr>";
+        }
+    }
+    closedir($handle);
+}
+		
+			}
+		}
+	}
+
+?>
